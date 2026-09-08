@@ -9,7 +9,7 @@ import ssl
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-TARGET = "https://www.cs2.uz"
+TARGET = "https://urgut-dam-olish-maskani.up.railway.app/"
 THREADS = 600
 TIMEOUT = 1.5
 
