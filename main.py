@@ -591,6 +591,8 @@
 # -*- coding: utf-8 -*-
 #!/usr/bin/env python3.14
 # -*- coding: utf-8 -*-
+#!/usr/bin/env python3.14
+# -*- coding: utf-8 -*-
 """
 KESTREL-7 / CS2.UZ_TOTAL_FLOOD
 7 xil hujum usuli: HTTP GET/POST, Slowloris, UDP, Cache Buster, WebSocket, API exploit, SSL reneg.
